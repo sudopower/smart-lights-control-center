@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>light·sync</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #12121a;
+      --border:    #1e1e2e;
+      --accent:    #6c63ff;
+      --accent-dim:#3d3880;
+      --text:      #e2e2f0;
+      --muted:     #6b6b80;
+      --success:   #22c55e;
+      --danger:    #ef4444;
+      --warm:      #ff9d4d;
+      --radius:    12px;
+      --transition:180ms ease;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+
+    .wordmark {
+      font-size: 1.15rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .wordmark span { color: var(--accent); }
+
+    .header-right { display: flex; align-items: center; gap: 14px; }
+
+    #status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    #status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background var(--transition);
+    }
+    #status-dot.online  { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    #status-dot.offline { background: var(--danger); }
+
+    .btn-scan {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition);
+      font-family: inherit;
+    }
+    .btn-scan:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn-scan:active { transform: none; opacity: 1; }
+    .btn-scan:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      padding: 40px 32px;
+      max-width: 860px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    #no-devices {
+      text-align: center;
+      padding: 80px 0;
+      color: var(--muted);
+    }
+    #no-devices p { margin-top: 10px; font-size: 0.88rem; }
+
+    /* ── Device card ── */
+    .device-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 24px;
+      transition: border-color var(--transition);
+    }
+    .device-card:hover { border-color: var(--accent-dim); }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+
+    .device-info h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .device-meta {
+      display: flex;
+      gap: 10px;
+      margin-top: 5px;
+    }
+    .tag {
+      font-size: 0.72rem;
+      font-weight: 500;
+      background: var(--border);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .tag.sku { color: var(--accent); }
+
+    /* Power toggle */
+    .power-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .power-label { font-size: 0.68rem; font-weight: 600; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+
+    .power-btn {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 180ms ease;
+      outline: none;
+    }
+    .power-btn svg { width: 22px; height: 22px; transition: all 180ms ease; }
+    .power-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .power-btn.on {
+      border-color: var(--success);
+      color: var(--success);
+      background: rgba(34,197,94,0.08);
+      box-shadow: 0 0 18px rgba(34,197,94,0.2);
+    }
+
+    /* ── Controls grid ── */
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 600px) { .controls { grid-template-columns: 1fr; } }
+
+    .control-block { display: flex; flex-direction: column; gap: 10px; }
+    .control-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Color picker */
+    .color-row { display: flex; align-items: center; gap: 12px; }
+    input[type="color"] {
+      width: 48px; height: 48px;
+      border: none; border-radius: 8px;
+      padding: 0; cursor: pointer;
+      background: none;
+      outline: 2px solid var(--border);
+      transition: outline-color var(--transition);
+    }
+    input[type="color"]:hover { outline-color: var(--accent); }
+
+    /* Presets */
+    .presets {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .preset {
+      width: 28px; height: 28px;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 150ms ease, border-color 150ms ease;
+    }
+    .preset:hover { transform: scale(1.15); border-color: rgba(255,255,255,0.3); }
+
+    /* Sliders */
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .slider-value {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      border: 2px solid var(--bg);
+      transition: transform 150ms ease, box-shadow 150ms ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    #brightness-slider { background: linear-gradient(to right, #222, var(--text)); }
+
+    .kelvin-slider {
+      background: linear-gradient(to right,
+        #ff8c1a,  /* 2000K */
+        #ffc06a,  /* 3000K */
+        #ffe4b5,  /* 4000K */
+        #fff9f0,  /* 5000K */
+        #f0f4ff,  /* 6500K */
+        #c8d8ff,  /* 8000K */
+        #aac4ff   /* 9000K */
+      );
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.82rem;
+      color: var(--text);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 250ms ease, transform 250ms ease;
+      pointer-events: none;
+      z-index: 200;
+    }
+    #toast.show { opacity: 1; transform: none; }
+    #toast.error { border-color: var(--danger); color: var(--danger); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">light<span>·</span>sync</div>
+  <div class="header-right">
+    <div id="status-badge">
+      <div id="status-dot"></div>
+      <span id="status-text">Idle</span>
+    </div>
+    <button class="btn-scan" id="scan-btn" onclick="scanDevices()">Scan</button>
+  </div>
+</header>
+
+<main>
+  <div id="no-devices">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.3">
+      <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+    <p>No devices found — press <strong>Scan</strong> to discover Govee lights on your LAN.</p>
+  </div>
+  <div id="devices"></div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const PRESETS = [
+  { name: 'Warm white',  hex: '#ffb347', r: 255, g: 179, b: 71  },
+  { name: 'Cool white',  hex: '#e8f0ff', r: 232, g: 240, b: 255 },
+  { name: 'Red',         hex: '#ff2d2d', r: 255, g: 45,  b: 45  },
+  { name: 'Green',       hex: '#22c55e', r: 34,  g: 197, b: 94  },
+  { name: 'Blue',        hex: '#3b82f6', r: 59,  g: 130, b: 246 },
+  { name: 'Purple',      hex: '#6c63ff', r: 108, g: 99,  b: 255 },
+  { name: 'Orange',      hex: '#f97316', r: 249, g: 115, b: 22  },
+];
+
+let devices = [];
+
+function setStatus(text, online) {
+  document.getElementById('status-text').textContent = text;
+  const dot = document.getElementById('status-dot');
+  dot.className = online === true ? 'online' : online === false ? 'offline' : '';
+}
+
+function toast(msg, error = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (error ? ' error' : '');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.className = ''; }, 2800);
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+async function scanDevices() {
+  const btn = document.getElementById('scan-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  setStatus('Scanning…', null);
+  try {
+    devices = await api('GET', '/api/devices');
+    renderDevices(devices);
+    setStatus(devices.length ? `${devices.length} device${devices.length > 1 ? 's' : ''}` : 'None found', devices.length > 0);
+    if (!devices.length) toast('No devices found. Check LAN Control is enabled.', true);
+  } catch (e) {
+    setStatus('Error', false);
+    toast('Scan failed: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Scan';
+  }
+}
+
+function hexToRgb(hex) {
+  const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  return m ? { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) } : null;
+}
+
+function rgbToHex(r, g, b) {
+  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+}
+
+function renderDevices(list) {
+  const wrap = document.getElementById('devices');
+  const nodev = document.getElementById('no-devices');
+  nodev.style.display = list.length ? 'none' : '';
+  wrap.innerHTML = list.map(d => deviceCard(d)).join('');
+}
+
+function deviceCard(d) {
+  const state = d.state;
+  const colorHex = rgbToHex(state.color.r, state.color.g, state.color.b);
+  return `
+  <div class="device-card" id="card-${CSS.escape(d.ip)}">
+    <div class="card-header">
+      <div class="device-info">
+        <h2>${d.sku || 'Govee Light'}</h2>
+        <div class="device-meta">
+          <span class="tag">${d.ip}</span>
+          <span class="tag sku">${d.sku}</span>
+        </div>
+      </div>
+      <div class="power-wrap">
+        <span class="power-label">Power</span>
+        <button class="power-btn ${state.on ? 'on' : ''}" id="pwr-${d.ip}"
+                onclick="togglePower('${d.ip}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="control-block">
+        <span class="control-label">Color</span>
+        <div class="color-row">
+          <input type="color" id="color-${d.ip}" value="${colorHex}"
+                 onchange="setColor('${d.ip}', this.value)" />
+          <span style="font-size:0.8rem;color:var(--muted)" id="colorhex-${d.ip}">${colorHex}</span>
+        </div>
+        <div class="presets">
+          ${PRESETS.map(p => `
+            <div class="preset" title="${p.name}"
+                 style="background:${p.hex}"
+                 onclick="applyPreset('${d.ip}', ${p.r}, ${p.g}, ${p.b})"></div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="control-block">
+        <span class="control-label">Brightness</span>
+        <div class="slider-row">
+          <input type="range" id="brightness-slider" min="1" max="100"
+                 value="${state.brightness}"
+                 oninput="document.getElementById('bval-${d.ip}').textContent=this.value+'%'"
+                 onchange="setBrightness('${d.ip}', this.value)" />
+          <span class="slider-value" id="bval-${d.ip}">${state.brightness}%</span>
+        </div>
+
+        <span class="control-label" style="margin-top:6px">Color Temp</span>
+        <div class="slider-row">
+          <input type="range" class="kelvin-slider" min="2000" max="9000" step="100"
+                 value="${state.kelvin || 4000}"
+                 oninput="document.getElementById('kval-${d.ip}').textContent=this.value+'K'"
+                 onchange="setKelvin('${d.ip}', this.value)" />
+          <span class="slider-value" id="kval-${d.ip}">${state.kelvin || 4000}K</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function togglePower(ip) {
+  const btn = document.getElementById(`pwr-${ip}`);
+  const isOn = btn.classList.contains('on');
+  btn.classList.toggle('on', !isOn);
+  try {
+    await api('POST', `/api/devices/${ip}/power`, { on: !isOn });
+    toast(isOn ? 'Light off' : 'Light on');
+  } catch(e) {
+    btn.classList.toggle('on', isOn); // revert
+    toast('Command failed', true);
+  }
+}
+
+async function setColor(ip, hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return;
+  document.getElementById(`colorhex-${ip}`).textContent = hex;
+  try {
+    await api('POST', `/api/devices/${ip}/color`, rgb);
+  } catch(e) {
+    toast('Color command failed', true);
+  }
+}
+
+async function applyPreset(ip, r, g, b) {
+  const hex = rgbToHex(r, g, b);
+  document.getElementById(`color-${ip}`).value = hex;
+  document.getElementById(`colorhex-${ip}`).textContent = hex;
+  try {
+    await api('POST', `/api/devices/${ip}/color`, { r, g, b });
+    toast('Color set');
+  } catch(e) {
+    toast('Command failed', true);
+  }
+}
+
+async function setBrightness(ip, value) {
+  try {
+    await api('POST', `/api/devices/${ip}/brightness`, { value: parseInt(value) });
+  } catch(e) {
+    toast('Brightness command failed', true);
+  }
+}
+
+async function setKelvin(ip, kelvin) {
+  try {
+    await api('POST', `/api/devices/${ip}/color-temp`, { kelvin: parseInt(kelvin) });
+  } catch(e) {
+    toast('Color temp command failed', true);
+  }
+}
+
+// Auto-scan on load
+window.addEventListener('DOMContentLoaded', scanDevices);
+</script>
+</body>
+</html>
