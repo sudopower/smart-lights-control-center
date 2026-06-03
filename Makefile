@@ -27,4 +27,4 @@ fmt:
 	$(RUFF) format src tests
 
 run:
-	$(UVICORN) lightsync.dashboard.app:create_app --factory --host 0.0.0.0 --port 8000 --reload
+	PYTHONPATH=src $(UVICORN) lightsync.dashboard.app:create_app --factory --host 0.0.0.0 --port 8000 --reload
