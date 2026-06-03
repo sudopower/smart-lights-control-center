@@ -286,6 +286,194 @@
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
+
+    /* ── Audio Sync Panel ── */
+    .audio-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-top: 32px;
+    }
+    .audio-panel:hover { border-color: var(--accent-dim); }
+
+    .audio-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    .audio-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .audio-title h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .audio-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: rgba(108,99,255,0.12);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+    }
+
+    /* Toggle switch */
+    .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+    .toggle-label { font-size: 0.8rem; font-weight: 500; color: var(--muted); }
+    .toggle {
+      position: relative;
+      width: 44px; height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform var(--transition), background var(--transition);
+    }
+    .toggle input:checked + .toggle-track { background: var(--accent); }
+    .toggle input:checked + .toggle-track::after {
+      transform: translateX(20px);
+      background: #fff;
+    }
+
+    /* Settings row */
+    .audio-settings {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 600px) { .audio-settings { grid-template-columns: 1fr; } }
+
+    .audio-settings select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 0.83rem;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+      transition: border-color var(--transition);
+      width: 100%;
+    }
+    .audio-settings select:hover,
+    .audio-settings select:focus { border-color: var(--accent); }
+
+    /* Device selector */
+    .audio-device-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .audio-device-row select {
+      flex: 1;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 0.83rem;
+      font-family: inherit;
+      cursor: pointer;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .audio-device-row select:hover,
+    .audio-device-row select:focus { border-color: var(--accent); }
+    .audio-device-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* Visualizer */
+    .visualizer {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      height: 64px;
+      margin-bottom: 20px;
+    }
+    .vis-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      height: 100%;
+    }
+    .vis-bar-track {
+      flex: 1;
+      width: 100%;
+      background: var(--bg);
+      border-radius: 4px;
+      display: flex;
+      align-items: flex-end;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .vis-bar {
+      width: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: height 60ms ease-out;
+      height: 0%;
+      box-shadow: 0 0 8px rgba(108,99,255,0);
+    }
+    .vis-bar.active {
+      box-shadow: 0 0 10px rgba(108,99,255,0.5);
+    }
+    .vis-bar-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    /* Color swatch + status */
+    .audio-footer {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .color-swatch {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: #000;
+      border: 1px solid var(--border);
+      transition: background 80ms ease-out, box-shadow 80ms ease-out;
+      flex-shrink: 0;
+    }
+    .audio-status-text {
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .audio-status-text.listening { color: var(--success); }
+    .audio-status-text.error { color: var(--danger); }
   </style>
 </head>
 <body>
@@ -312,6 +500,93 @@
     <p>No devices found — press <strong>Scan</strong> to discover Govee lights on your LAN.</p>
   </div>
   <div id="devices"></div>
+
+  <!-- ── Audio Sync Panel ── -->
+  <div class="audio-panel" id="audio-panel">
+    <div class="audio-header">
+      <div class="audio-title">
+        <div class="audio-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+          </svg>
+        </div>
+        <h2>Audio Sync</h2>
+      </div>
+      <div class="toggle-wrap">
+        <span class="toggle-label" id="audio-toggle-label">OFF</span>
+        <label class="toggle">
+          <input type="checkbox" id="audio-toggle" onchange="onAudioToggle(this.checked)" />
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Device + Govee light selection -->
+    <div class="audio-device-row">
+      <span class="audio-device-label">Light</span>
+      <select id="audio-light-select">
+        <option value="">— no devices scanned —</option>
+      </select>
+      <span class="audio-device-label" style="margin-left:8px">Input</span>
+      <select id="audio-input-select">
+        <option value="">Default mic</option>
+      </select>
+    </div>
+
+    <!-- Settings -->
+    <div class="audio-settings">
+      <div class="control-block">
+        <span class="control-label">Sensitivity</span>
+        <div class="slider-row">
+          <input type="range" id="audio-sensitivity" min="0.5" max="2" step="0.05" value="1.0"
+                 style="background: linear-gradient(to right, var(--accent-dim), var(--accent))"
+                 oninput="document.getElementById('sens-val').textContent=parseFloat(this.value).toFixed(2)" />
+          <span class="slider-value" id="sens-val">1.00</span>
+        </div>
+      </div>
+
+      <div class="control-block">
+        <span class="control-label">Color Mode</span>
+        <select id="audio-color-mode">
+          <option value="spectrum">Spectrum</option>
+          <option value="pulse">Pulse</option>
+          <option value="bass">Bass</option>
+        </select>
+      </div>
+
+      <div class="control-block">
+        <span class="control-label">Smoothing</span>
+        <div class="slider-row">
+          <input type="range" id="audio-smoothing" min="0" max="1" step="0.05" value="0.6"
+                 style="background: linear-gradient(to right, var(--accent-dim), var(--accent))"
+                 oninput="document.getElementById('smooth-val').textContent=parseFloat(this.value).toFixed(2)" />
+          <span class="slider-value" id="smooth-val">0.60</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visualizer -->
+    <div class="visualizer">
+      <div class="vis-bar-wrap">
+        <div class="vis-bar-track"><div class="vis-bar" id="vis-bass"></div></div>
+        <span class="vis-bar-label">Bass</span>
+      </div>
+      <div class="vis-bar-wrap">
+        <div class="vis-bar-track"><div class="vis-bar" id="vis-mid"></div></div>
+        <span class="vis-bar-label">Mid</span>
+      </div>
+      <div class="vis-bar-wrap">
+        <div class="vis-bar-track"><div class="vis-bar" id="vis-treble"></div></div>
+        <span class="vis-bar-label">Treble</span>
+      </div>
+    </div>
+
+    <!-- Footer: swatch + status -->
+    <div class="audio-footer">
+      <div class="color-swatch" id="audio-swatch"></div>
+      <span class="audio-status-text" id="audio-status-text">Stopped</span>
+    </div>
+  </div>
 </main>
 
 <div id="toast"></div>
@@ -542,8 +817,164 @@ async function setKelvin(ip, kelvin) {
   }
 }
 
-// Auto-scan on load
-window.addEventListener('DOMContentLoaded', scanDevices);
+// ── Audio Sync ────────────────────────────────────────────────────────────────
+
+let _audioWs = null;
+let _audioRafId = null;
+let _pendingFrame = null;
+
+function updateAudioLightSelect(deviceList) {
+  const sel = document.getElementById('audio-light-select');
+  sel.innerHTML = deviceList.length
+    ? deviceList.map(d => `<option value="${d.ip}">${d.sku || d.ip} (${d.ip})</option>`).join('')
+    : '<option value="">— no devices scanned —</option>';
+}
+
+async function loadAudioInputDevices() {
+  try {
+    const devs = await api('GET', '/api/audio/devices');
+    const sel = document.getElementById('audio-input-select');
+    sel.innerHTML = '<option value="">Default mic</option>' +
+      devs.map(d => `<option value="${d.index}">${d.name}</option>`).join('');
+  } catch (_) { /* sounddevice not installed or no devices — leave default */ }
+}
+
+function setAudioStatus(text, cls = '') {
+  const el = document.getElementById('audio-status-text');
+  el.textContent = text;
+  el.className = 'audio-status-text' + (cls ? ' ' + cls : '');
+}
+
+function applyAudioFrame(frame) {
+  _pendingFrame = frame;
+}
+
+function renderAudioFrame() {
+  _audioRafId = requestAnimationFrame(renderAudioFrame);
+  if (!_pendingFrame) return;
+  const f = _pendingFrame;
+  _pendingFrame = null;
+
+  if (f.running === false) {
+    setAudioStatus('Stopped');
+    return;
+  }
+
+  const bassBar   = document.getElementById('vis-bass');
+  const midBar    = document.getElementById('vis-mid');
+  const trebleBar = document.getElementById('vis-treble');
+  const swatch    = document.getElementById('audio-swatch');
+
+  bassBar.style.height   = Math.round(f.bass   * 100) + '%';
+  midBar.style.height    = Math.round(f.mid    * 100) + '%';
+  trebleBar.style.height = Math.round(f.treble * 100) + '%';
+
+  [bassBar, midBar, trebleBar].forEach(b => b.classList.toggle('active', f.rms > 0.05));
+
+  if (f.color) {
+    const { r, g, b } = f.color;
+    swatch.style.background = `rgb(${r},${g},${b})`;
+    const glow = f.brightness > 20 ? `0 0 12px rgba(${r},${g},${b},0.5)` : 'none';
+    swatch.style.boxShadow = glow;
+  }
+
+  setAudioStatus('Listening...', 'listening');
+}
+
+function startAudioRaf() {
+  if (_audioRafId) return;
+  renderAudioFrame();
+}
+
+function stopAudioRaf() {
+  if (_audioRafId) {
+    cancelAnimationFrame(_audioRafId);
+    _audioRafId = null;
+  }
+}
+
+function connectAudioWs() {
+  if (_audioWs && _audioWs.readyState === WebSocket.OPEN) return;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  _audioWs = new WebSocket(`${proto}://${location.host}/ws/audio`);
+
+  _audioWs.onmessage = (evt) => {
+    try { applyAudioFrame(JSON.parse(evt.data)); } catch (_) {}
+  };
+
+  _audioWs.onerror = () => setAudioStatus('WebSocket error', 'error');
+
+  _audioWs.onclose = () => {
+    // If toggle is still on, reconnect after a short delay
+    if (document.getElementById('audio-toggle').checked) {
+      setTimeout(connectAudioWs, 1500);
+    }
+  };
+}
+
+function disconnectAudioWs() {
+  if (_audioWs) {
+    _audioWs.onclose = null; // prevent auto-reconnect
+    _audioWs.close();
+    _audioWs = null;
+  }
+}
+
+async function onAudioToggle(on) {
+  document.getElementById('audio-toggle-label').textContent = on ? 'ON' : 'OFF';
+
+  if (on) {
+    const ip = document.getElementById('audio-light-select').value;
+    if (!ip) {
+      toast('Scan for devices first, then select a light.', true);
+      document.getElementById('audio-toggle').checked = false;
+      document.getElementById('audio-toggle-label').textContent = 'OFF';
+      return;
+    }
+    const inputSel = document.getElementById('audio-input-select');
+    const deviceIndex = inputSel.value !== '' ? parseInt(inputSel.value) : null;
+    const sensitivity = parseFloat(document.getElementById('audio-sensitivity').value);
+    const color_mode  = document.getElementById('audio-color-mode').value;
+    const smoothing   = parseFloat(document.getElementById('audio-smoothing').value);
+
+    setAudioStatus('Starting...', '');
+    try {
+      await api('POST', '/api/audio/start', { ip, device_index: deviceIndex, sensitivity, color_mode, smoothing });
+      connectAudioWs();
+      startAudioRaf();
+      setAudioStatus('Listening...', 'listening');
+      toast('Audio sync started');
+    } catch (e) {
+      document.getElementById('audio-toggle').checked = false;
+      document.getElementById('audio-toggle-label').textContent = 'OFF';
+      setAudioStatus('Failed to start', 'error');
+      toast('Audio start failed: ' + e.message, true);
+    }
+  } else {
+    try {
+      await api('POST', '/api/audio/stop');
+      toast('Audio sync stopped');
+    } catch (_) {}
+    disconnectAudioWs();
+    stopAudioRaf();
+    setAudioStatus('Stopped');
+    // Reset bars
+    ['vis-bass', 'vis-mid', 'vis-treble'].forEach(id => {
+      document.getElementById(id).style.height = '0%';
+      document.getElementById(id).classList.remove('active');
+    });
+    document.getElementById('audio-swatch').style.background = '#000';
+    document.getElementById('audio-swatch').style.boxShadow = 'none';
+  }
+}
+
+// ── Auto-scan on load
+window.addEventListener('DOMContentLoaded', () => {
+  scanDevices().then(() => {
+    updateAudioLightSelect(devices);
+  });
+  loadAudioInputDevices();
+});
 </script>
 </body>
 </html>

@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from lightsync.govee import Color, GoveeController, GoveeDevice
+from lightsync.modes.audio import AudioSettings, AudioSync
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,14 @@ class ColorTempPayload(BaseModel):
     kelvin: int
 
 
+class AudioStartPayload(BaseModel):
+    ip: str
+    device_index: int | None = None
+    sensitivity: float = 1.0
+    color_mode: str = "spectrum"
+    smoothing: float = 0.6
+
+
 # ── App factory ───────────────────────────────────────────────────────────────
 
 
@@ -49,6 +59,11 @@ def create_app(controller: GoveeController | None = None) -> FastAPI:
 
     # In-memory state: ip → {device, state}
     _registry: dict[str, dict[str, Any]] = {}
+
+    # Audio sync state
+    _audio_sync: AudioSync | None = None
+    _audio_device_ip: str | None = None
+    _audio_ws_clients: list[WebSocket] = []
 
     def _get_device(ip: str) -> GoveeDevice:
         entry = _registry.get(ip)
@@ -122,6 +137,92 @@ def create_app(controller: GoveeController | None = None) -> FastAPI:
         _registry[ip]["state"]["kelvin"] = payload.kelvin
         _registry[ip]["state"]["color"] = {"r": 0, "g": 0, "b": 0}
         return {"status": "ok"}
+
+    # ── Audio sync endpoints ──────────────────────────────────────────────────
+
+    @app.get("/api/audio/devices")
+    async def list_audio_devices() -> list[dict[str, Any]]:
+        """Return available audio input devices."""
+        try:
+            return AudioSync.list_devices()
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    @app.post("/api/audio/start")
+    async def start_audio(payload: AudioStartPayload) -> dict[str, str]:
+        """Start audio sync for a device."""
+        nonlocal _audio_sync, _audio_device_ip
+
+        device = _get_device(payload.ip)
+
+        # Stop existing sync if running
+        if _audio_sync and _audio_sync.is_running:
+            await _audio_sync.stop()
+
+        settings = AudioSettings(
+            sensitivity=payload.sensitivity,
+            color_mode=payload.color_mode,
+            smoothing=payload.smoothing,
+        )
+        _audio_sync = AudioSync(
+            controller=ctrl,
+            device=device,
+            settings=settings,
+            device_index=payload.device_index,
+        )
+        _audio_device_ip = payload.ip
+        try:
+            await _audio_sync.start()
+        except Exception as exc:
+            _audio_sync = None
+            _audio_device_ip = None
+            raise HTTPException(status_code=500, detail=f"Failed to start audio: {exc}") from exc
+        return {"status": "started"}
+
+    @app.post("/api/audio/stop")
+    async def stop_audio() -> dict[str, str]:
+        """Stop audio sync."""
+        nonlocal _audio_sync, _audio_device_ip
+        if _audio_sync:
+            await _audio_sync.stop()
+            _audio_sync = None
+            _audio_device_ip = None
+        return {"status": "stopped"}
+
+    @app.get("/api/audio/status")
+    async def audio_status() -> dict[str, Any]:
+        """Return current audio sync status and latest frame."""
+        running = bool(_audio_sync and _audio_sync.is_running)
+        frame_dict = _audio_sync.current_frame.as_dict() if running and _audio_sync else None
+        return {
+            "running": running,
+            "device_ip": _audio_device_ip,
+            "frame": frame_dict,
+        }
+
+    @app.websocket("/ws/audio")
+    async def audio_ws(websocket: WebSocket) -> None:
+        """Stream AudioFrame JSON at ~20 fps while audio sync is running."""
+        await websocket.accept()
+        _audio_ws_clients.append(websocket)
+        try:
+            while True:
+                await asyncio.sleep(0.05)  # 20 fps
+                if _audio_sync and _audio_sync.is_running:
+                    try:
+                        await websocket.send_json(_audio_sync.current_frame.as_dict())
+                    except Exception:
+                        break
+                else:
+                    try:
+                        await websocket.send_json({"running": False})
+                    except Exception:
+                        break
+        except WebSocketDisconnect:
+            pass
+        finally:
+            if websocket in _audio_ws_clients:
+                _audio_ws_clients.remove(websocket)
 
     # ── Static files ──────────────────────────────────────────────────────────
 
