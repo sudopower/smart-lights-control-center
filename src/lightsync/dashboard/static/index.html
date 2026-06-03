@@ -318,8 +318,8 @@
 
 <script>
 const PRESETS = [
-  { name: 'Warm white',  hex: '#ffb347', r: 255, g: 179, b: 71  },
-  { name: 'Cool white',  hex: '#e8f0ff', r: 232, g: 240, b: 255 },
+  { name: 'Warm white',  hex: '#ffb347', kelvin: 2700 },
+  { name: 'Cool white',  hex: '#e8f0ff', kelvin: 6500 },
   { name: 'Red',         hex: '#ff2d2d', r: 255, g: 45,  b: 45  },
   { name: 'Green',       hex: '#22c55e', r: 34,  g: 197, b: 94  },
   { name: 'Blue',        hex: '#3b82f6', r: 59,  g: 130, b: 246 },
@@ -422,7 +422,7 @@ function deviceCard(d) {
           ${PRESETS.map(p => `
             <div class="preset" title="${p.name}"
                  style="background:${p.hex}"
-                 onclick="applyPreset('${d.ip}', ${p.r}, ${p.g}, ${p.b})"></div>
+                 onclick="${p.kelvin ? `applyKelvinPreset('${d.ip}',${p.kelvin})` : `applyPreset('${d.ip}',${p.r},${p.g},${p.b})`}"></div>
           `).join('')}
         </div>
       </div>
@@ -439,7 +439,7 @@ function deviceCard(d) {
 
         <span class="control-label" style="margin-top:6px">Color Temp</span>
         <div class="slider-row">
-          <input type="range" class="kelvin-slider" min="2000" max="9000" step="100"
+          <input type="range" class="kelvin-slider" id="kslider-${d.ip}" min="2000" max="9000" step="100"
                  value="${state.kelvin || 4000}"
                  oninput="document.getElementById('kval-${d.ip}').textContent=this.value+'K'"
                  onchange="setKelvin('${d.ip}', this.value)" />
@@ -463,10 +463,25 @@ async function togglePower(ip) {
   }
 }
 
+function colorSaturation(r, g, b) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  return max === 0 ? 0 : (max - min) / max;
+}
+
 async function setColor(ip, hex) {
   const rgb = hexToRgb(hex);
   if (!rgb) return;
   document.getElementById(`colorhex-${ip}`).textContent = hex;
+  // Low-saturation colors (whites/greys) → use kelvin for accurate white tone
+  if (colorSaturation(rgb.r, rgb.g, rgb.b) < 0.15) {
+    const kelvin = parseInt(document.getElementById(`kslider-${ip}`)?.value || 4000);
+    try {
+      await api('POST', `/api/devices/${ip}/color-temp`, { kelvin });
+    } catch(e) {
+      toast('Color temp command failed', true);
+    }
+    return;
+  }
   try {
     await api('POST', `/api/devices/${ip}/color`, rgb);
   } catch(e) {
@@ -486,6 +501,14 @@ async function applyPreset(ip, r, g, b) {
   }
 }
 
+async function applyKelvinPreset(ip, kelvin) {
+  const slider = document.getElementById(`kslider-${ip}`);
+  if (slider) slider.value = kelvin;
+  document.getElementById(`kval-${ip}`).textContent = kelvin + 'K';
+  await setKelvin(ip, kelvin);
+  toast('White tone set');
+}
+
 async function setBrightness(ip, value) {
   try {
     await api('POST', `/api/devices/${ip}/brightness`, { value: parseInt(value) });
@@ -494,7 +517,24 @@ async function setBrightness(ip, value) {
   }
 }
 
+// Approximate kelvin → RGB for visual feedback only (not sent to device)
+function kelvinToHex(k) {
+  k = k / 100;
+  let r, g, b;
+  r = k <= 66 ? 255 : Math.min(255, Math.max(0, 329.698727446 * Math.pow(k - 60, -0.1332047592)));
+  g = k <= 66
+    ? Math.min(255, Math.max(0, 99.4708025861 * Math.log(k) - 161.1195681661))
+    : Math.min(255, Math.max(0, 288.1221695283 * Math.pow(k - 60, -0.0755148492)));
+  b = k >= 66 ? 255 : (k <= 19 ? 0 : Math.min(255, Math.max(0, 138.5177312231 * Math.log(k - 10) - 305.0447927307)));
+  return rgbToHex(Math.round(r), Math.round(g), Math.round(b));
+}
+
 async function setKelvin(ip, kelvin) {
+  // Sync color picker to show the white tone visually
+  const hex = kelvinToHex(parseInt(kelvin));
+  const picker = document.getElementById(`color-${ip}`);
+  if (picker) picker.value = hex;
+  document.getElementById(`colorhex-${ip}`).textContent = hex;
   try {
     await api('POST', `/api/devices/${ip}/color-temp`, { kelvin: parseInt(kelvin) });
   } catch(e) {
